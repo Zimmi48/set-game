@@ -47,11 +47,12 @@
 
     // Fill the deck with all combinations of cards
     const deck = [];
+    let i = 0;
     for (let c of colors)
       for (let s of shapes)
         for (let f of fills)
           for (let n of numbers)
-            deck.push({ color: c, shape: s, fill: f, number: n });
+            deck.push({ color: c, shape: s, fill: f, number: n, id: i++ });
 
     shuffle(deck);
 
@@ -142,14 +143,15 @@
     /**
      * Generates the SVG markup for a given card, including color, shape, fill, and number.
      * Handles striped fill using SVG patterns.
-     * @param {Object} card - Card object with color, shape, fill, and number properties.
+     * @param {Object} card - Card object with color, shape, fill, number, and id properties.
      * @returns {string} SVG markup as a string.
      */
     function getCardSVG(card) {
       const colorMap = { red: "#d00", green: "#090", purple: "#609" };
       const color = colorMap[card.color];
+      const pattern_name = `stripes${card.id}`;
       const fill = card.fill === "solid" ? color :
-        card.fill === "empty" ? "none" : "url(#stripes)";
+        card.fill === "empty" ? "none" : `url(#${pattern_name})`;
       const stripeFill = card.fill === "striped" ? 'fill-opacity="0.5"' : "";
 
       const spacing = 30;
@@ -164,8 +166,8 @@
       return `
         <svg viewBox="0 0 120 80">
           <defs>
-            <pattern id="stripes" patternUnits="userSpaceOnUse" width="4" height="4">
-              <path d="M0,0 L0,4" stroke="black" stroke-width="1" />
+            <pattern id="${pattern_name}" patternUnits="userSpaceOnUse" width="4" height="4">
+              <path d="M0,0 L0,4" stroke="${color}" stroke-width="5" />
             </pattern>
           </defs>
           <g transform="rotate(90 60 40)">
@@ -187,16 +189,16 @@
      */
     function drawShape(shape, x, y, color, fill, stripeFill) {
       if (shape === "oval") {
-        return `<ellipse cx="${x}" cy="${y}" rx="25" ry="12" stroke="${color}" fill="${fill}" ${stripeFill} />`;
+        return `<ellipse cx="${x}" cy="${y}" rx="25" ry="12" stroke="${color}" stroke-width="2" fill="${fill}" ${stripeFill} />`;
       } else if (shape === "diamond") {
-        return `<polygon points="${x - 25},${y} ${x},${y - 12} ${x + 25},${y} ${x},${y + 12}" stroke="${color}" fill="${fill}" ${stripeFill} />`;
+        return `<polygon points="${x - 25},${y} ${x},${y - 12} ${x + 25},${y} ${x},${y + 12}" stroke="${color}" stroke-width="2" fill="${fill}" ${stripeFill} />`;
       } else if (shape === "squiggle") {
         return `<path d="
           M${x - 30},${y - 10}
           C${x - 10},${y - 30}, ${x + 10},${y + 10}, ${x + 30},${y - 10}
           C${x + 10},${y + 30}, ${x - 10},${y - 10}, ${x - 30},${y + 10}
           Z
-        " stroke="${color}" fill="${fill}" ${stripeFill} />`;
+        " stroke="${color}" stroke-width="2" fill="${fill}" ${stripeFill} />`;
       }
     }
 
