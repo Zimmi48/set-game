@@ -31,6 +31,12 @@
     .card.selected {
       border-color: #00f;
     }
+
+    .card.faded {
+      opacity: 0.1;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
   </style>
 </head>
 
@@ -66,12 +72,16 @@
     /**
      * Renders the current board state by creating card elements for each card on the board.
      * Highlights selected cards and attaches click handlers for selection.
+     * Optionally fades out non-selected cards.
+     * @param {boolean} [faded] - Whether to fade out non-selected cards.
      */
-    function renderBoard() {
+    function renderBoard(faded = false) {
       board.innerHTML = "";
       boardCards.forEach((card, i) => {
         const div = document.createElement("div");
-        div.className = "card" + (selectedIndices.includes(i) ? " selected" : "");
+        div.className = "card" +
+          (selectedIndices.includes(i) ? " selected" : "") +
+          (faded && !selectedIndices.includes(i) ? " faded" : "");
         div.innerHTML = getCardSVG(card);
         div.onclick = () => selectCard(i);
         board.appendChild(div);
@@ -93,12 +103,13 @@
         if (selectedIndices.length < 3) selectedIndices.push(index);
       }
 
-      renderBoard();
-
       if (selectedIndices.length === 3) {
         const [a, b, c] = selectedIndices.map(i => boardCards[i]);
         if (isSet(a, b, c)) {
           message.textContent = "✔️ Set trouvé !";
+          // Fade out non-selected cards
+          renderBoard(true);
+
           if (boardCards.length > 12) {
             // Remove the selected cards from the board without replacement
             // We remove the cards in reverse order to avoid index shifting issues
@@ -116,12 +127,17 @@
           ensureSetAvailable();
         } else {
           message.textContent = "❌ Ce n'est pas un Set.";
+          renderBoard();
         }
         selectedIndices = [];
         setTimeout(() => {
           message.textContent = "";
           renderBoard();
         }, 1000);
+      }
+      else {
+        message.textContent = "";
+        renderBoard();
       }
     }
 
