@@ -2,8 +2,7 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch and the staging branch (we test in production)
-  # This is useful for testing changes before merging to main
+  # Runs on pushes targeting the default branch
   push:
     branches: ["main", "staging"]
 
@@ -25,20 +24,18 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload src directory
-          path: 'src'
+
+      - name: Build (if needed)
+        run: echo "No build step needed"
+
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./src
+          # Deploy main branch to root, staging to subfolder
+          destination_dir: ${{ github.ref == 'refs/heads/staging' && 'staging' || '.' }}
