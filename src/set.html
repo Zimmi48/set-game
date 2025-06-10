@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Jeu Set</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: sans-serif;
@@ -36,6 +37,33 @@
       opacity: 0.1;
       pointer-events: none;
       transition: opacity 0.3s;
+    }
+
+    @media (max-width: 600px) {
+      #board {
+        grid-template-columns: repeat(3, 30vw);
+        gap: 2vw;
+        width: 90vw;
+        margin: 0 auto;
+      }
+
+      .card {
+        width: 29vw;
+        height: 16vw;
+        min-width: 60px;
+        min-height: 40px;
+        max-width: 90px;
+        max-height: 60px;
+      }
+
+      h1 {
+        font-size: 1.3em;
+      }
+
+      #timer,
+      #message {
+        font-size: 1em;
+      }
     }
   </style>
 </head>
@@ -308,7 +336,6 @@
 
     renderBoard();
     startTimer();
-
   </script>
 </body>
 
