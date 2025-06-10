@@ -333,6 +333,25 @@
       }
     }
 
+    // Prevent screen from dimming/locking on mobile
+    if ('wakeLock' in navigator) {
+      let wakeLock = null;
+      async function requestWakeLock() {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          // Wake Lock request failed - ignore or handle error
+        }
+      }
+      requestWakeLock();
+      // Re-request on visibility change (e.g., after tab switch)
+      document.addEventListener('visibilitychange', () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+          requestWakeLock();
+        }
+      });
+    }
+
 
     renderBoard();
     startTimer();
