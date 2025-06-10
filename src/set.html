@@ -73,6 +73,7 @@
   <p id="timer">Temps : 0s</p>
   <div id="board"></div>
   <p id="message"></p>
+  <p id="best-time"></p>
 
   <script>
     const colors = ["red", "green", "purple"];
@@ -108,19 +109,51 @@
       if (timerInterval) return;
       timerInterval = setInterval(() => {
         timer++;
-        if (timer >= 60) {
-          let minutes = Math.floor(timer / 60);
-          let seconds = timer % 60;
-          timerDisplay.textContent = `Temps : ${minutes}m ${seconds}s`;
-        } else {
-          timerDisplay.textContent = `Temps : ${timer}s`;
-        }
+        timerDisplay.textContent = `Temps : ${formatTime(timer)}`;
       }, 1000);
     }
 
     function stopTimer() {
       clearInterval(timerInterval);
       timerInterval = null;
+    }
+
+    let bestTime = localStorage.getItem("set-best-time") || null;
+    const bestTimeDisplay = document.getElementById("best-time");
+
+    /**
+     * Updates the best time display if a best time exists.
+     */
+    function updateBestTimeDisplay() {
+      if (bestTime) {
+        bestTimeDisplay.textContent = `Meilleur temps : ${formatTime(bestTime)}`;
+      } else {
+        bestTimeDisplay.textContent = "";
+      }
+    }
+
+    updateBestTimeDisplay();
+
+    /* Checks if the current game time is a new best time.
+     * If it is, updates the best time in localStorage and displays it.
+     * Returns true if a new best time was set, false otherwise.
+     */
+    function checkAndSaveBestTime() {
+      if (!bestTime || timer < bestTime) {
+        bestTime = timer;
+        localStorage.setItem("set-best-time", bestTime);
+        updateBestTimeDisplay();
+        return true; // New best time
+      }
+      return false; // Not a new best time
+    }
+
+    function formatTime(seconds) {
+      seconds = Number(seconds);
+      if (seconds < 60) return `${seconds}s`;
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}m ${s}s`;
     }
 
     /**
@@ -320,9 +353,13 @@
         boardCards.push(deck.pop());
       }
       if (!hasAvailableSet(boardCards)) {
-        let minutes = Math.floor(timer / 60);
-        let seconds = timer % 60;
-        message.textContent = `🎉 Partie terminée en ${minutes}m ${seconds}s !`;
+        timer++; // Cancel the decrement from the last set found
+        let newBestTime = checkAndSaveBestTime();
+        if (newBestTime) {
+          message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(timer)} !`;
+        } else {
+          message.textContent = `🎉 Partie terminée en ${formatTime(timer)} !`;
+        }
         stopTimer();
       }
       else {
