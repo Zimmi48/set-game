@@ -76,31 +76,40 @@
   <p id="best-time"></p>
 
   <script>
-    const colors = ["red", "green", "purple"];
-    const shapes = ["oval", "diamond", "squiggle"];
-    const fills = ["solid", "empty", "striped"];
-    const numbers = [1, 2, 3];
+    let deck, boardCards, selectedIndices, timer;
+    const saved = localStorage.getItem("setGameState");
+    if (saved) {
+      const state = JSON.parse(saved);
+      deck = state.deck;
+      boardCards = state.boardCards;
+      selectedIndices = state.selectedIndices;
+      timer = state.timer;
+    } else {
+      const colors = ["red", "green", "purple"];
+      const shapes = ["oval", "diamond", "squiggle"];
+      const fills = ["solid", "empty", "striped"];
+      const numbers = [1, 2, 3];
 
-    // Fill the deck with all combinations of cards
-    const deck = [];
-    let i = 0;
-    for (let c of colors)
-      for (let s of shapes)
-        for (let f of fills)
-          for (let n of numbers)
-            deck.push({ color: c, shape: s, fill: f, number: n, id: i++ });
+      deck = [];
+      let i = 0;
+      for (let c of colors)
+        for (let s of shapes)
+          for (let f of fills)
+            for (let n of numbers)
+              deck.push({ color: c, shape: s, fill: f, number: n, id: i++ });
 
-    shuffle(deck);
+      shuffle(deck);
 
-    let boardCards = deck.splice(0, 12);
-    ensureSetAvailable();
-    let selectedIndices = [];
+      boardCards = deck.splice(0, 12);
+      ensureSetAvailable();
+      selectedIndices = [];
+      timer = 0;
+    }
 
     const board = document.getElementById("board");
     const message = document.getElementById("message");
     displayCardsLeft();
 
-    let timer = 0;
     let timerInterval = null;
     let timerPaused = false;
     const timerDisplay = document.getElementById("timer");
@@ -109,6 +118,7 @@
       if (timerInterval) return;
       timerInterval = setInterval(() => {
         timer++;
+        saveGameState();
         timerDisplay.textContent = `Temps : ${formatTime(timer)}`;
       }, 1000);
     }
@@ -183,6 +193,9 @@
      * @param {number} index - Index of the card to select or deselect.
      */
     function selectCard(index) {
+      if (!hasAvailableSet(boardCards)) {
+        return;
+      }
       const i = selectedIndices.indexOf(index);
       if (i >= 0) {
         selectedIndices.splice(i, 1);
@@ -213,6 +226,7 @@
             boardCards = boardCards.filter(Boolean);
           }
           ensureSetAvailable();
+          saveGameState();
         } else {
           message.textContent = "❌ Ce n'est pas un Set.";
           renderBoard();
@@ -361,11 +375,12 @@
           message.textContent = `🎉 Partie terminée en ${formatTime(timer)} !`;
         }
         stopTimer();
-      }
-      else {
+        clearGameState();
+      } else {
         setTimeout(() => {
           displayCardsLeft();
           renderBoard();
+          saveGameState();
         }, 1000);
       }
     }
@@ -389,6 +404,19 @@
       });
     }
 
+    function saveGameState() {
+      const state = {
+        deck,
+        boardCards,
+        selectedIndices,
+        timer,
+      };
+      localStorage.setItem("setGameState", JSON.stringify(state));
+    }
+
+    function clearGameState() {
+      localStorage.removeItem("setGameState");
+    }
 
     renderBoard();
     startTimer();
