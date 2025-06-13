@@ -39,6 +39,14 @@
       transition: opacity 0.3s;
     }
 
+    #restart-btn {
+      padding: 0.5em 1.5em;
+      font-size: 1em;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 1em;
+    }
+
     @media (max-width: 600px) {
       #board {
         grid-template-columns: repeat(3, 30vw);
@@ -74,17 +82,14 @@
   <div id="board"></div>
   <p id="message"></p>
   <p id="best-time"></p>
+  <button id="restart-btn" style="margin-bottom:1em;">Recommencer</button>
 
   <script>
     let deck, boardCards, selectedIndices, timer;
-    const saved = localStorage.getItem("setGameState");
-    if (saved) {
-      const state = JSON.parse(saved);
-      deck = state.deck;
-      boardCards = state.boardCards;
-      selectedIndices = state.selectedIndices;
-      timer = state.timer;
-    } else {
+    /**
+     * Initializes a new game: creates and shuffles the deck, deals cards, resets state.
+     */
+    function initializeGame() {
       const colors = ["red", "green", "purple"];
       const shapes = ["oval", "diamond", "squiggle"];
       const fills = ["solid", "empty", "striped"];
@@ -101,9 +106,22 @@
       shuffle(deck);
 
       boardCards = deck.splice(0, 12);
-      ensureSetAvailable();
       selectedIndices = [];
       timer = 0;
+      ensureSetAvailable();
+      saveGameState();
+    }
+
+    // --- Initialization ---
+    const saved = localStorage.getItem("setGameState");
+    if (saved) {
+      const state = JSON.parse(saved);
+      deck = state.deck;
+      boardCards = state.boardCards;
+      selectedIndices = state.selectedIndices;
+      timer = state.timer;
+    } else {
+      initializeGame();
     }
 
     const board = document.getElementById("board");
@@ -417,6 +435,18 @@
     function clearGameState() {
       localStorage.removeItem("setGameState");
     }
+
+    const restartBtn = document.getElementById("restart-btn");
+    restartBtn.onclick = () => {
+      stopTimer();
+      clearGameState();
+      initializeGame();
+      updateBestTimeDisplay();
+      renderBoard();
+      displayCardsLeft();
+      startTimer();
+      message.textContent = "";
+    };
 
     renderBoard();
     startTimer();
