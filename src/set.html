@@ -229,6 +229,30 @@
           renderBoard(true);
           timer--;
 
+          // Check if this is the last set when the deck is empty
+          if (deck.length === 0) {
+            // Simulate removal of the selected cards
+            let tempBoard = boardCards.slice();
+            let indices = selectedIndices.slice().sort((a, b) => b - a);
+            indices.forEach(idx => tempBoard.splice(idx, 1));
+
+            // If no sets remain after removal, keep the set on the board and finish the game
+            if (!hasAvailableSet(tempBoard)) {
+              timer++; // Cancel the decrement from above
+              let newBestTime = checkAndSaveBestTime();
+              if (newBestTime) {
+                message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(timer)} !`;
+              } else {
+                message.textContent = `🎉 Partie terminée en ${formatTime(timer)} !`;
+              }
+              stopTimer();
+              // Optionally keep selectedIndices so the set stays highlighted
+              saveGameState();
+              return; // Do NOT remove the cards, keep final set visible
+            }
+            // If there are still sets, fall through and remove as usual
+          }
+
           if (boardCards.length > 12) {
             // Remove the selected cards from the board without replacement
             // We remove the cards in reverse order to avoid index shifting issues
