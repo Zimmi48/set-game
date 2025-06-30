@@ -85,7 +85,7 @@
   <button id="restart-btn" style="margin-bottom:1em;">Recommencer</button>
 
   <script>
-    let deck, boardCards, selectedIndices, timer;
+    let deck, boardCards, selectedIndices, gameStatus; // { status: "running"|"over", timer: number }
     /**
      * Initializes a new game: creates and shuffles the deck, deals cards, resets state.
      */
@@ -107,10 +107,13 @@
 
       boardCards = deck.splice(0, 12);
       selectedIndices = [];
-      timer = 0;
+      gameStatus = { status: "running", timer: 0 };
       ensureSetAvailable();
       saveGameState();
     }
+
+    const board = document.getElementById("board");
+    const message = document.getElementById("message");
 
     // --- Initialization ---
     const saved = localStorage.getItem("setGameState");
@@ -119,25 +122,28 @@
       deck = state.deck;
       boardCards = state.boardCards;
       selectedIndices = state.selectedIndices;
-      timer = state.timer;
+      gameStatus = state.gameStatus;
+      if (gameStatus.status === "over" && state.message) {
+        message.textContent = state.message;
+      }
     } else {
       initializeGame();
     }
 
-    const board = document.getElementById("board");
-    const message = document.getElementById("message");
-    displayCardsLeft();
+    if (gameStatus.status === "running") {
+      displayCardsLeft();
+    }
 
     let timerInterval = null;
     let timerPaused = false;
     const timerDisplay = document.getElementById("timer");
 
     function startTimer() {
-      if (timerInterval) return;
+      if (timerInterval || gameStatus.status === "over") return;
       timerInterval = setInterval(() => {
-        timer++;
+        gameStatus.timer++;
         saveGameState();
-        timerDisplay.textContent = `Temps : ${formatTime(timer)}`;
+        timerDisplay.textContent = `Temps : ${formatTime(gameStatus.timer)}`;
       }, 1000);
     }
 
@@ -167,8 +173,8 @@
      * Returns true if a new best time was set, false otherwise.
      */
     function checkAndSaveBestTime() {
-      if (!bestTime || timer < bestTime) {
-        bestTime = timer;
+      if (!bestTime || gameStatus.timer < bestTime) {
+        bestTime = gameStatus.timer;
         localStorage.setItem("set-best-time", bestTime);
         updateBestTimeDisplay();
         return true; // New best time
@@ -211,7 +217,7 @@
      * @param {number} index - Index of the card to select or deselect.
      */
     function selectCard(index) {
-      if (!hasAvailableSet(boardCards)) {
+      if (gameStatus.status === "over") {
         return;
       }
       const i = selectedIndices.indexOf(index);
@@ -227,7 +233,7 @@
           message.textContent = "✔️ Set trouvé !";
           // Fade out non-selected cards
           renderBoard(true);
-          timer--;
+          gameStatus.timer--;
 
           // Check if this is the last set when the deck is empty
           if (deck.length === 0) {
@@ -238,13 +244,14 @@
 
             // If no sets remain after removal, keep the set on the board and finish the game
             if (!hasAvailableSet(tempBoard)) {
-              timer++; // Cancel the decrement from above
+              gameStatus.timer++; // Cancel the decrement from above
               let newBestTime = checkAndSaveBestTime();
               if (newBestTime) {
-                message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(timer)} !`;
+                message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
               } else {
-                message.textContent = `🎉 Partie terminée en ${formatTime(timer)} !`;
+                message.textContent = `🎉 Partie terminée en ${formatTime(gameStatus.timer)} !`;
               }
+              gameStatus.status = "over";
               stopTimer();
               // Optionally keep selectedIndices so the set stays highlighted
               saveGameState();
@@ -409,13 +416,14 @@
         boardCards.push(deck.pop());
       }
       if (!hasAvailableSet(boardCards)) {
-        timer++; // Cancel the decrement from the last set found
+        gameStatus.timer++; // Cancel the decrement from the last set found
         let newBestTime = checkAndSaveBestTime();
         if (newBestTime) {
-          message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(timer)} !`;
+          message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
         } else {
-          message.textContent = `🎉 Partie terminée en ${formatTime(timer)} !`;
+          message.textContent = `🎉 Partie terminée en ${formatTime(gameStatus.timer)} !`;
         }
+        gameStatus.status = "over";
         stopTimer();
       } else {
         setTimeout(() => {
@@ -450,7 +458,8 @@
         deck,
         boardCards,
         selectedIndices,
-        timer,
+        gameStatus,
+        message: message.textContent,
       };
       localStorage.setItem("setGameState", JSON.stringify(state));
     }
@@ -471,8 +480,15 @@
       message.textContent = "";
     };
 
-    renderBoard();
-    startTimer();
+    if (gameStatus.status === "running") {
+      renderBoard();
+      startTimer();
+    }
+    else {
+      renderBoard(true); // Show final set
+      timerDisplay.textContent = `Temps : ${formatTime(gameStatus.timer)}`;
+    }
+
   </script>
 </body>
 
