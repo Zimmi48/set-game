@@ -13,7 +13,8 @@
       text-align: center;
     }
 
-    #board {
+    #board,
+    .snapshot {
       display: grid;
       grid-template-columns: repeat(3, 140px);
       gap: 10px;
@@ -39,7 +40,7 @@
       transition: opacity 0.3s;
     }
 
-    #restart-btn {
+    button {
       padding: 0.5em 1.5em;
       font-size: 1em;
       border-radius: 6px;
@@ -48,7 +49,9 @@
     }
 
     @media (max-width: 600px) {
-      #board {
+
+      #board,
+      .snapshot {
         grid-template-columns: repeat(3, 30vw);
         gap: 2vw;
         width: 90vw;
@@ -80,12 +83,15 @@
   <h1>Jeu Set</h1>
   <p id="timer">Temps : 0s</p>
   <div id="board"></div>
+  <div id="snapshots"></div>
   <p id="message"></p>
   <p id="best-time"></p>
   <button id="restart-btn" style="margin-bottom:1em;">Recommencer</button>
 
   <script>
     let deck, boardCards, selectedIndices, gameStatus; // { status: "running"|"over", timer: number }
+    let boardSnapshots; // Array of { timeSpent, snapshot }
+    let currentBoardStartTime;
     /**
      * Initializes a new game: creates and shuffles the deck, deals cards, resets state.
      */
@@ -108,12 +114,15 @@
       boardCards = deck.splice(0, 12);
       selectedIndices = [];
       gameStatus = { status: "running", timer: 0 };
+      boardSnapshots = [];
+      currentBoardStartTime = 0
       ensureSetAvailable();
       saveGameState();
     }
 
     const board = document.getElementById("board");
     const message = document.getElementById("message");
+    const snapshots_div = document.getElementById("snapshots");
 
     let timerInterval = null;
     let timerPaused = false;
@@ -210,9 +219,29 @@
         const [a, b, c] = selectedIndices.map(i => boardCards[i]);
         if (isSet(a, b, c)) {
           message.textContent = "✔️ Set trouvé !";
+
+          // Save snapshot of the current board and time spent on the previous board
+          const timeSpent = gameStatus.timer - currentBoardStartTime;
+          const timeThreshold = Math.min(...boardSnapshots.map(s => s.timeSpent));
+          if (timeSpent > timeThreshold || boardSnapshots.length < 3) {
+            // Save a deep copy of the boardCards
+            boardSnapshots.push({
+              timeSpent,
+              snapshot: boardCards.map(card => ({ ...card }))
+            });
+            // Remove a snapshot if we exceed 3
+            if (boardSnapshots.length > 3) {
+              // Find a snapshot with timeSpent equal to timeThreshold
+              const indexToRemove = boardSnapshots.findIndex(s => s.timeSpent === timeThreshold);
+              boardSnapshots.splice(indexToRemove, 1);
+            }
+          }
+          currentBoardStartTime = gameStatus.timer;
+
           // Fade out non-selected cards
           renderBoard(true);
           gameStatus.timer--;
+          currentBoardStartTime = gameStatus.timer;
 
           // Check if this is the last set when the deck is empty
           if (deck.length === 0) {
@@ -223,16 +252,7 @@
 
             // If no sets remain after removal, keep the set on the board and finish the game
             if (!hasAvailableSet(tempBoard)) {
-              gameStatus.timer++; // Cancel the decrement from above
-              let newBestTime = checkAndSaveBestTime();
-              if (newBestTime) {
-                message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
-              } else {
-                message.textContent = `🎉 Partie terminée en ${formatTime(gameStatus.timer)} !`;
-              }
-              gameStatus.status = "over";
-              stopTimer();
-              // Optionally keep selectedIndices so the set stays highlighted
+              finishGame();
               saveGameState();
               return; // Do NOT remove the cards, keep final set visible
             }
@@ -268,6 +288,45 @@
       else {
         renderBoard();
       }
+    }
+
+    /**
+     * Finishes the game by checking if the current time is a new best time,
+     * displaying a message, and stopping the timer.
+     */
+    function finishGame() {
+      gameStatus.timer++; // Cancel the decrement from above
+      let newBestTime = checkAndSaveBestTime();
+      if (newBestTime) {
+        message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
+      } else {
+        message.textContent = `🎉 Partie terminée en ${formatTime(gameStatus.timer)} !`;
+      }
+      gameStatus.status = "over";
+      stopTimer();
+
+      showReviewButton();
+    }
+
+    reviewBtn = null;
+
+    /**
+     * Displays a button to review the hardest boards.
+     * This button is shown when the game is over.
+     */
+    function showReviewButton() {
+      // Only create review button if it doesn't already exist
+      if (reviewBtn) return;
+      // Create the review button
+      reviewBtn = document.createElement("button");
+      reviewBtn.textContent = "Voir les plateaux les plus difficiles";
+      reviewBtn.style.marginLeft = "1em";
+      reviewBtn.onclick = () => {
+        showHardestBoards();
+        reviewBtn.remove();
+        reviewBtn = null;
+      };
+      document.body.appendChild(reviewBtn);
     }
 
     /**
@@ -395,15 +454,7 @@
         boardCards.push(deck.pop());
       }
       if (!hasAvailableSet(boardCards)) {
-        gameStatus.timer++; // Cancel the decrement from the last set found
-        let newBestTime = checkAndSaveBestTime();
-        if (newBestTime) {
-          message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
-        } else {
-          message.textContent = `🎉 Partie terminée en ${formatTime(gameStatus.timer)} !`;
-        }
-        gameStatus.status = "over";
-        stopTimer();
+        finishGame();
       } else {
         setTimeout(() => {
           displayCardsLeft();
@@ -439,12 +490,44 @@
         selectedIndices,
         gameStatus,
         message: message.textContent,
+        boardSnapshots,
+        currentBoardStartTime,
       };
       localStorage.setItem("setGameState", JSON.stringify(state));
     }
 
     function clearGameState() {
       localStorage.removeItem("setGameState");
+    }
+
+    /**
+     * Displays the three hardest boards based on time spent finding a Set.
+     * Each board snapshot is displayed with its time spent and the cards.
+     */
+    function showHardestBoards() {
+      board.innerHTML = "";
+      // Create and insert the intro sentence above the boards
+      const intro = document.createElement("div");
+      intro.textContent = "Voici les 3 plateaux pour lesquels vous avez mis le plus de temps à trouver un Set :";
+      intro.style.margin = "1em 0";
+      snapshots_div.append(intro);
+
+      boardSnapshots.sort((a, b) => b.timeSpent - a.timeSpent).forEach((snap, idx) => {
+        const miniBoard = document.createElement("div");
+        miniBoard.className = "snapshot";
+
+        const title = document.createElement("div");
+        title.innerHTML = `<p><strong>Plateau #${idx + 1} (${formatTime(snap.timeSpent)})</strong></p>`;
+        title.style.marginBottom = "0.5em";
+
+        snap.snapshot.forEach(card => {
+          const cardDiv = document.createElement("div");
+          cardDiv.className = "card";
+          cardDiv.innerHTML = getCardSVG(card);
+          miniBoard.appendChild(cardDiv);
+        });
+        snapshots_div.append(title, miniBoard);
+      });
     }
 
     // Setup restart button handler
@@ -458,6 +541,11 @@
       displayCardsLeft();
       startTimer();
       message.textContent = "";
+      snapshots_div.innerHTML = ""; // Clear previous snapshots
+      if (reviewBtn) {
+        reviewBtn.remove(); // Remove review button if it exists
+        reviewBtn = null;
+      }
     };
 
     // --- Initialization ---
@@ -481,8 +569,11 @@
         boardCards = state.boardCards;
         selectedIndices = state.selectedIndices;
         gameStatus = state.gameStatus;
+        boardSnapshots = state.boardSnapshots || [];
+        currentBoardStartTime = state.currentBoardStartTime || null;
         if (gameStatus.status === "over" && state.message) {
           message.textContent = state.message;
+          showReviewButton();
         }
       }
     } else {
