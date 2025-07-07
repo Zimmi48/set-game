@@ -298,7 +298,7 @@
       gameStatus.timer++; // Cancel the decrement from above
       let newBestTime = checkAndSaveBestTime();
       if (newBestTime) {
-        message.textContent = `🎉 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
+        message.textContent = `🚀 Nouveau meilleur temps : ${formatTime(gameStatus.timer)} !`;
       } else {
         message.textContent = `🎉 Partie terminée en ${formatTime(gameStatus.timer)} !`;
       }
