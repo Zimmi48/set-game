@@ -115,39 +115,6 @@
     const board = document.getElementById("board");
     const message = document.getElementById("message");
 
-    // --- Initialization ---
-    const saved = localStorage.getItem("setGameState");
-    if (saved) {
-      const state = JSON.parse(saved);
-      // Validate saved state structure
-      if (!state.deck || !Array.isArray(state.deck) ||
-        !state.boardCards || !Array.isArray(state.boardCards) ||
-        !state.selectedIndices || !Array.isArray(state.selectedIndices) ||
-        !state.gameStatus || typeof state.gameStatus !== 'object' ||
-        typeof state.gameStatus.status !== 'string' ||
-        (state.gameStatus.status !== "running" && state.gameStatus.status !== "over") ||
-        typeof state.gameStatus.timer !== 'number' ||
-        (state.gameStatus.status === "over" && typeof state.message !== 'string')) {
-        console.error("Invalid saved game state, starting a new game.");
-        initializeGame();
-      } else {
-        // Load saved state
-        deck = state.deck;
-        boardCards = state.boardCards;
-        selectedIndices = state.selectedIndices;
-        gameStatus = state.gameStatus;
-        if (gameStatus.status === "over" && state.message) {
-          message.textContent = state.message;
-        }
-      }
-    } else {
-      initializeGame();
-    }
-
-    if (gameStatus.status === "running") {
-      displayCardsLeft();
-    }
-
     let timerInterval = null;
     let timerPaused = false;
     const timerDisplay = document.getElementById("timer");
@@ -179,8 +146,6 @@
         bestTimeDisplay.textContent = "";
       }
     }
-
-    updateBestTimeDisplay();
 
     /* Checks if the current game time is a new best time.
      * If it is, updates the best time in localStorage and displays it.
@@ -482,6 +447,7 @@
       localStorage.removeItem("setGameState");
     }
 
+    // Setup restart button handler
     const restartBtn = document.getElementById("restart-btn");
     restartBtn.onclick = () => {
       stopTimer();
@@ -494,7 +460,39 @@
       message.textContent = "";
     };
 
+    // --- Initialization ---
+    const saved = localStorage.getItem("setGameState");
+    if (saved) {
+      const state = JSON.parse(saved);
+      // Validate saved state structure
+      if (!state.deck || !Array.isArray(state.deck) ||
+        !state.boardCards || !Array.isArray(state.boardCards) ||
+        !state.selectedIndices || !Array.isArray(state.selectedIndices) ||
+        !state.gameStatus || typeof state.gameStatus !== 'object' ||
+        typeof state.gameStatus.status !== 'string' ||
+        (state.gameStatus.status !== "running" && state.gameStatus.status !== "over") ||
+        typeof state.gameStatus.timer !== 'number' ||
+        (state.gameStatus.status === "over" && typeof state.message !== 'string')) {
+        console.error("Invalid saved game state, starting a new game.");
+        initializeGame();
+      } else {
+        // Load saved state
+        deck = state.deck;
+        boardCards = state.boardCards;
+        selectedIndices = state.selectedIndices;
+        gameStatus = state.gameStatus;
+        if (gameStatus.status === "over" && state.message) {
+          message.textContent = state.message;
+        }
+      }
+    } else {
+      initializeGame();
+    }
+
+    updateBestTimeDisplay();
+
     if (gameStatus.status === "running") {
+      displayCardsLeft();
       renderBoard();
       startTimer();
     }
