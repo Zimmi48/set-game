@@ -91,6 +91,7 @@
   <script>
     let deck, boardCards, selectedIndices, gameStatus; // { status: "running"|"over", timer: number }
     let boardSnapshots; // Array of { timeSpent, snapshot }
+    let missedEasierSets; // Array of { board, selectedSet, easierSets }
     let currentBoardStartTime;
     /**
      * Initializes a new game: creates and shuffles the deck, deals cards, resets state.
@@ -115,6 +116,7 @@
       selectedIndices = [];
       gameStatus = { status: "running", timer: 0 };
       boardSnapshots = [];
+      missedEasierSets = [];
       currentBoardStartTime = 0
       ensureSetAvailable();
       saveGameState();
@@ -220,6 +222,25 @@
         if (isSet(a, b, c)) {
           message.textContent = "✔️ Set trouvé !";
 
+          // Check for missed easier sets
+          const allSets = findAllSets(boardCards);
+          const selectedSetDifficulty = getSetDifficulty(a, b, c);
+          const easierSets = allSets.filter(set => set.difficulty > selectedSetDifficulty);
+          
+          if (easierSets.length > 0) {
+            // Save the missed easier sets (limit to 3 to avoid memory issues)
+            if (missedEasierSets.length < 3) {
+              missedEasierSets.push({
+                board: boardCards.map(card => ({ ...card })), // Deep copy
+                selectedSet: { cards: [a, b, c], difficulty: selectedSetDifficulty },
+                easierSets: easierSets.map(set => ({
+                  cards: set.cards.map(card => ({ ...card })),
+                  difficulty: set.difficulty
+                }))
+              });
+            }
+          }
+
           // Save snapshot of the current board and time spent on the previous board
           const timeSpent = gameStatus.timer - currentBoardStartTime;
           const timeThreshold = Math.min(...boardSnapshots.map(s => s.timeSpent));
@@ -309,15 +330,17 @@
     }
 
     reviewBtn = null;
+    missedEasierBtn = null;
 
     /**
-     * Displays a button to review the hardest boards.
-     * This button is shown when the game is over.
+     * Displays buttons to review the hardest boards and missed easier sets.
+     * These buttons are shown when the game is over.
      */
     function showReviewButton() {
       // Only create review button if it doesn't already exist
       if (reviewBtn) return;
-      // Create the review button
+      
+      // Create the review button for hardest boards
       reviewBtn = document.createElement("button");
       reviewBtn.textContent = "Voir les plateaux les plus difficiles";
       reviewBtn.style.marginLeft = "1em";
@@ -325,8 +348,29 @@
         showHardestBoards();
         reviewBtn.remove();
         reviewBtn = null;
+        if (missedEasierBtn) {
+          missedEasierBtn.remove();
+          missedEasierBtn = null;
+        }
       };
       document.body.appendChild(reviewBtn);
+      
+      // Create the missed easier sets button if there are any
+      if (missedEasierSets.length > 0) {
+        missedEasierBtn = document.createElement("button");
+        missedEasierBtn.textContent = "Voir les Sets plus faciles manqués";
+        missedEasierBtn.style.marginLeft = "1em";
+        missedEasierBtn.onclick = () => {
+          showMissedEasierSets();
+          missedEasierBtn.remove();
+          missedEasierBtn = null;
+          if (reviewBtn) {
+            reviewBtn.remove();
+            reviewBtn = null;
+          }
+        };
+        document.body.appendChild(missedEasierBtn);
+      }
     }
 
     /**
@@ -342,6 +386,49 @@
         const vals = [a[prop], b[prop], c[prop]];
         return new Set(vals).size === 1 || new Set(vals).size === 3;
       });
+    }
+
+    /**
+     * Calculates the difficulty of a set based on the number of fixed characteristics.
+     * A set is easier (higher difficulty score) if it has more characteristics that are the same.
+     * @param {Object} a - First card.
+     * @param {Object} b - Second card.
+     * @param {Object} c - Third card.
+     * @returns {number} Number of fixed characteristics (0-4, where 4 is easiest).
+     */
+    function getSetDifficulty(a, b, c) {
+      let fixedCharacteristics = 0;
+      ["color", "shape", "fill", "number"].forEach(prop => {
+        const vals = [a[prop], b[prop], c[prop]];
+        if (new Set(vals).size === 1) {
+          fixedCharacteristics++;
+        }
+      });
+      return fixedCharacteristics;
+    }
+
+    /**
+     * Finds all available sets on the current board.
+     * @param {Array<Object>} cards - Array of card objects.
+     * @returns {Array<Object>} Array of set objects with cards, indices, and difficulty.
+     */
+    function findAllSets(cards) {
+      const sets = [];
+      for (let i = 0; i < cards.length; i++) {
+        for (let j = i + 1; j < cards.length; j++) {
+          for (let k = j + 1; k < cards.length; k++) {
+            if (isSet(cards[i], cards[j], cards[k])) {
+              const difficulty = getSetDifficulty(cards[i], cards[j], cards[k]);
+              sets.push({
+                cards: [cards[i], cards[j], cards[k]],
+                indices: [i, j, k],
+                difficulty: difficulty
+              });
+            }
+          }
+        }
+      }
+      return sets;
     }
 
     /**
@@ -491,6 +578,7 @@
         gameStatus,
         message: message.textContent,
         boardSnapshots,
+        missedEasierSets,
         currentBoardStartTime,
       };
       localStorage.setItem("setGameState", JSON.stringify(state));
@@ -530,6 +618,86 @@
       });
     }
 
+    /**
+     * Displays boards where easier sets were missed.
+     * Shows the board, the set the player chose, and the easier sets that were available.
+     */
+    function showMissedEasierSets() {
+      board.innerHTML = "";
+      // Create and insert the intro sentence above the boards
+      const intro = document.createElement("div");
+      intro.textContent = "Voici les plateaux où vous avez manqué des Sets plus faciles :";
+      intro.style.margin = "1em 0";
+      snapshots_div.append(intro);
+
+      missedEasierSets.forEach((missed, idx) => {
+        const section = document.createElement("div");
+        section.style.margin = "2em 0";
+        section.style.padding = "1em";
+        section.style.border = "1px solid #ccc";
+        section.style.borderRadius = "8px";
+        
+        const title = document.createElement("div");
+        title.innerHTML = `<p><strong>Plateau #${idx + 1}</strong></p>`;
+        title.style.marginBottom = "1em";
+        
+        // Show the board
+        const boardDiv = document.createElement("div");
+        boardDiv.className = "snapshot";
+        boardDiv.style.marginBottom = "1em";
+        
+        missed.board.forEach(card => {
+          const cardDiv = document.createElement("div");
+          cardDiv.className = "card";
+          cardDiv.innerHTML = getCardSVG(card);
+          boardDiv.appendChild(cardDiv);
+        });
+        
+        // Show selected set
+        const selectedInfo = document.createElement("div");
+        selectedInfo.innerHTML = `<p><strong>Set choisi (${missed.selectedSet.difficulty} caractéristique${missed.selectedSet.difficulty > 1 ? 's' : ''} fixe${missed.selectedSet.difficulty > 1 ? 's' : ''}) :</strong></p>`;
+        selectedInfo.style.margin = "1em 0";
+        
+        const selectedSetDiv = document.createElement("div");
+        selectedSetDiv.style.display = "flex";
+        selectedSetDiv.style.gap = "10px";
+        selectedSetDiv.style.justifyContent = "center";
+        selectedSetDiv.style.marginBottom = "1em";
+        
+        missed.selectedSet.cards.forEach(card => {
+          const cardDiv = document.createElement("div");
+          cardDiv.className = "card";
+          cardDiv.style.border = "3px solid #ff0000";
+          cardDiv.innerHTML = getCardSVG(card);
+          selectedSetDiv.appendChild(cardDiv);
+        });
+        
+        // Show easier sets that were available
+        const easierInfo = document.createElement("div");
+        const maxDifficulty = Math.max(...missed.easierSets.map(s => s.difficulty));
+        easierInfo.innerHTML = `<p><strong>Set${missed.easierSets.length > 1 ? 's' : ''} plus facile${missed.easierSets.length > 1 ? 's' : ''} disponible${missed.easierSets.length > 1 ? 's' : ''} (${maxDifficulty} caractéristique${maxDifficulty > 1 ? 's' : ''} fixe${maxDifficulty > 1 ? 's' : ''}) :</strong></p>`;
+        easierInfo.style.margin = "1em 0";
+        
+        // Show the easiest set that was available
+        const easiestSet = missed.easierSets.find(s => s.difficulty === maxDifficulty);
+        const easierSetDiv = document.createElement("div");
+        easierSetDiv.style.display = "flex";
+        easierSetDiv.style.gap = "10px";
+        easierSetDiv.style.justifyContent = "center";
+        
+        easiestSet.cards.forEach(card => {
+          const cardDiv = document.createElement("div");
+          cardDiv.className = "card";
+          cardDiv.style.border = "3px solid #00ff00";
+          cardDiv.innerHTML = getCardSVG(card);
+          easierSetDiv.appendChild(cardDiv);
+        });
+        
+        section.append(title, boardDiv, selectedInfo, selectedSetDiv, easierInfo, easierSetDiv);
+        snapshots_div.append(section);
+      });
+    }
+
     // Setup restart button handler
     const restartBtn = document.getElementById("restart-btn");
     restartBtn.onclick = () => {
@@ -545,6 +713,10 @@
       if (reviewBtn) {
         reviewBtn.remove(); // Remove review button if it exists
         reviewBtn = null;
+      }
+      if (missedEasierBtn) {
+        missedEasierBtn.remove(); // Remove missed easier sets button if it exists
+        missedEasierBtn = null;
       }
     };
 
@@ -570,6 +742,7 @@
         selectedIndices = state.selectedIndices;
         gameStatus = state.gameStatus;
         boardSnapshots = state.boardSnapshots || [];
+        missedEasierSets = state.missedEasierSets || [];
         currentBoardStartTime = state.currentBoardStartTime || null;
         if (gameStatus.status === "over" && state.message) {
           message.textContent = state.message;
