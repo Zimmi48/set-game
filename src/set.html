@@ -91,7 +91,8 @@
   <script>
     let deck, boardCards, selectedIndices, gameStatus; // { status: "running"|"over", timer: number }
     let boardSnapshots; // Array of { timeSpent, snapshot }
-    let missedEasierSets; // Array of { board, selectedSet, easierSets }
+    let missedEasierSets; // Array of { board, selectedSet, easierSets, difficultyDifference }
+    let missedEasierSetsCount; // Total count of boards with missed easier sets
     let currentBoardStartTime;
     /**
      * Initializes a new game: creates and shuffles the deck, deals cards, resets state.
@@ -117,6 +118,7 @@
       gameStatus = { status: "running", timer: 0 };
       boardSnapshots = [];
       missedEasierSets = [];
+      missedEasierSetsCount = 0;
       currentBoardStartTime = 0
       ensureSetAvailable();
       saveGameState();
@@ -228,16 +230,36 @@
           const easierSets = allSets.filter(set => set.difficulty > selectedSetDifficulty);
           
           if (easierSets.length > 0) {
-            // Save the missed easier sets (limit to 3 to avoid memory issues)
+            // Increment counter for missed easier sets
+            missedEasierSetsCount++;
+            
+            // Calculate the difficulty difference (easiest available - selected)
+            const maxEasierDifficulty = Math.max(...easierSets.map(set => set.difficulty));
+            const difficultyDifference = maxEasierDifficulty - selectedSetDifficulty;
+            
+            // Create the missed set object with difficulty difference
+            const missedSet = {
+              board: boardCards.map(card => ({ ...card })), // Deep copy
+              selectedSet: { cards: [a, b, c], difficulty: selectedSetDifficulty },
+              easierSets: easierSets.map(set => ({
+                cards: set.cards.map(card => ({ ...card })),
+                difficulty: set.difficulty
+              })),
+              difficultyDifference: difficultyDifference
+            };
+            
+            // Maintain only the top 3 missed sets by difficulty difference
             if (missedEasierSets.length < 3) {
-              missedEasierSets.push({
-                board: boardCards.map(card => ({ ...card })), // Deep copy
-                selectedSet: { cards: [a, b, c], difficulty: selectedSetDifficulty },
-                easierSets: easierSets.map(set => ({
-                  cards: set.cards.map(card => ({ ...card })),
-                  difficulty: set.difficulty
-                }))
-              });
+              missedEasierSets.push(missedSet);
+            } else {
+              // Find the index of the missed set with the smallest difficulty difference
+              const minDiffIndex = missedEasierSets.reduce((minIdx, current, idx, arr) => 
+                current.difficultyDifference < arr[minIdx].difficultyDifference ? idx : minIdx, 0);
+              
+              // Replace if current difficulty difference is larger
+              if (difficultyDifference > missedEasierSets[minDiffIndex].difficultyDifference) {
+                missedEasierSets[minDiffIndex] = missedSet;
+              }
             }
           }
 
@@ -579,6 +601,7 @@
         message: message.textContent,
         boardSnapshots,
         missedEasierSets,
+        missedEasierSetsCount,
         currentBoardStartTime,
       };
       localStorage.setItem("setGameState", JSON.stringify(state));
@@ -621,16 +644,20 @@
     /**
      * Displays boards where easier sets were missed.
      * Shows the board, the set the player chose, and the easier sets that were available.
+     * Displays the ones with the biggest difficulty difference first.
      */
     function showMissedEasierSets() {
       board.innerHTML = "";
       // Create and insert the intro sentence above the boards
       const intro = document.createElement("div");
-      intro.textContent = "Voici les plateaux où vous avez manqué des Sets plus faciles :";
+      intro.innerHTML = `Voici les plateaux où vous avez manqué des Sets plus faciles :<br><em>Total de plateaux avec des Sets plus faciles manqués : ${missedEasierSetsCount}</em>`;
       intro.style.margin = "1em 0";
       snapshots_div.append(intro);
 
-      missedEasierSets.forEach((missed, idx) => {
+      // Sort by difficulty difference (largest first)
+      const sortedMissedSets = [...missedEasierSets].sort((a, b) => b.difficultyDifference - a.difficultyDifference);
+
+      sortedMissedSets.forEach((missed, idx) => {
         const section = document.createElement("div");
         section.style.margin = "2em 0";
         section.style.padding = "1em";
@@ -638,7 +665,7 @@
         section.style.borderRadius = "8px";
         
         const title = document.createElement("div");
-        title.innerHTML = `<p><strong>Plateau #${idx + 1}</strong></p>`;
+        title.innerHTML = `<p><strong>Plateau #${idx + 1} (différence de difficulté : ${missed.difficultyDifference})</strong></p>`;
         title.style.marginBottom = "1em";
         
         // Show the board
@@ -743,6 +770,7 @@
         gameStatus = state.gameStatus;
         boardSnapshots = state.boardSnapshots || [];
         missedEasierSets = state.missedEasierSets || [];
+        missedEasierSetsCount = state.missedEasierSetsCount || 0;
         currentBoardStartTime = state.currentBoardStartTime || null;
         if (gameStatus.status === "over" && state.message) {
           message.textContent = state.message;
