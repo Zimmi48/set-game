@@ -52,19 +52,36 @@
 
       #board,
       .snapshot {
-        grid-template-columns: repeat(3, 30vw);
+        grid-template-columns: repeat(3, 28vw);
         gap: 2vw;
         width: 90vw;
         margin: 0 auto;
       }
 
       .card {
-        width: 29vw;
-        height: 16vw;
+        width: 27vw;
+        height: 15vw;
         min-width: 60px;
         min-height: 40px;
         max-width: 90px;
         max-height: 60px;
+      }
+
+      /* Responsive styling for set display containers in review sections */
+      #snapshots div[style*="display: flex"] {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 1vw !important;
+      }
+
+      /* Ensure cards in set display containers are properly sized on mobile */
+      #snapshots div[style*="display: flex"] .card {
+        width: 27vw !important;
+        height: 15vw !important;
+        min-width: 60px !important;
+        min-height: 40px !important;
+        max-width: 90px !important;
+        max-height: 60px !important;
       }
 
       h1 {
