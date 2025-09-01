@@ -367,12 +367,12 @@
       reviewBtn.textContent = "Voir les plateaux les plus difficiles";
       reviewBtn.style.marginLeft = "1em";
       reviewBtn.onclick = () => {
+        snapshots_div.innerHTML = ""; // Clear previous content
         showHardestBoards();
-        reviewBtn.remove();
-        reviewBtn = null;
+        // Update button text to show which panel is active
+        reviewBtn.textContent = "✓ Plateaux les plus difficiles";
         if (missedEasierBtn) {
-          missedEasierBtn.remove();
-          missedEasierBtn = null;
+          missedEasierBtn.textContent = "Voir les Sets plus faciles manqués";
         }
       };
       document.body.appendChild(reviewBtn);
@@ -383,12 +383,12 @@
         missedEasierBtn.textContent = "Voir les Sets plus faciles manqués";
         missedEasierBtn.style.marginLeft = "1em";
         missedEasierBtn.onclick = () => {
+          snapshots_div.innerHTML = ""; // Clear previous content
           showMissedEasierSets();
-          missedEasierBtn.remove();
-          missedEasierBtn = null;
+          // Update button text to show which panel is active
+          missedEasierBtn.textContent = "✓ Sets plus faciles manqués";
           if (reviewBtn) {
-            reviewBtn.remove();
-            reviewBtn = null;
+            reviewBtn.textContent = "Voir les plateaux les plus difficiles";
           }
         };
         document.body.appendChild(missedEasierBtn);
